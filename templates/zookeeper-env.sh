@@ -1,0 +1,2 @@
+ZOO_LOG_DIR=/var/log/zookeeper
+export ZOO_LOG_DIR

@@ -1,0 +1,27 @@
+---
+- name: create ext volume for configs
+  file: state=directory path={{ ext_zookeeper_conf_volume }}
+
+- name: put zoo.cfg config
+  template: src=zoo.cfg dest={{ ext_zookeeper_conf_volume }}/zoo.cfg
+
+- name: put zookeeper-env.sh config
+  template: src=zookeeper-env.sh dest={{ ext_zookeeper_conf_volume }}/zookeeper-env.sh
+
+- name: put log4j.properties config
+  template: src=log4j.properties dest={{ ext_zookeeper_conf_volume }}/log4j.properties
+
+- name: create ext volume for data
+  file: state=directory path={{ ext_zookeeper_volume }}
+
+- name: put myid
+  template: src=myid dest={{ ext_zookeeper_volume }}/myid owner=root group=root mode=0644
+
+- name: check if a zookeeper container is started
+  command: bash -c "docker ps | grep zookeeper"
+  ignore_errors: True
+  register: result
+
+- name: start a zookeeper container
+  command: docker run -d -h {{ ansible_hostname }}  --dns {{ ansible_docker0.ipv4.address }} --dns 8.8.8.8 --dns-search node.dc1.consul  -p={{ zookeeper_client_port }}:{{ zookeeper_client_port }} -p={{ zookeeper_peerport }}:{{ zookeeper_peerport }} -p={{ zookeeper_leaderport }}:{{ zookeeper_leaderport }} -v {{ ext_zookeeper_conf_volume }}:/zookeeper/conf -v {{ ext_zookeeper_volume }}:/var/lib/zookeeper -name zookeeper gitinsky/zookeeper:0.1.0
+  when: result|failed
