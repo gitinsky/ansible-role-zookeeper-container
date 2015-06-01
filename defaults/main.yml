@@ -1,0 +1,10 @@
+ext_zookeeper_conf_volume: /var/lib/docker-extvols/zookeeper-configs
+ext_zookeeper_volume: /var/lib/docker-extvols/zookeeper-data
+zookeeper_client_port: 2191
+zookeeper_peerport: 2898
+zookeeper_leaderport: 3898
+dockerized_zookeeper_server_1: 127.0.0.1
+dockerized_zookeeper_server_2: 127.0.0.1
+dockerized_zookeeper_server_3: 127.0.0.1
+zookeeper_id: 1
+docker_dns_2: 8.8.8.8
