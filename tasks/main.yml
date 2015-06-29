@@ -14,41 +14,51 @@
     - { src: myid             , dest: "{{ ext_zookeeper_volume }}/myid" }
   register: config
 
-- name: start zookeeper container
-  docker:
-    image: gitinsky/zookeeper:0.1.1
-    state: "{{ 'restarted' if config.changed else 'reloaded' }}"
-    hostname: "zoo-{{ ansible_hostname }}"
-    publish_all_ports: yes
-    dns:
-      - "{{ ansible_docker0.ipv4.address }}"
-      - "{{ docker_dns_2 }}"
-    ports:
-        - "{{ zookeeper_client_port }}:{{ zookeeper_client_port }}"
-        - "{{ zookeeper_peerport }}:{{ zookeeper_peerport }}"
-        - "{{ zookeeper_leaderport }}:{{ zookeeper_leaderport }}"
-    volumes:
-      - "{{ ext_zookeeper_conf_volume }}:/zookeeper/conf"
-      - "{{ ext_zookeeper_volume }}:/var/lib/zookeeper"
-    name: zookeeper
-    restart_policy: always
-  register: docker_id
-  tags:
-    - docker
+#- name: start zookeeper container
+#  docker:
+#    image: gitinsky/zookeeper:0.1.2
+#    state: "{{ 'restarted' if config.changed else 'reloaded' }}"
+#    hostname: "zoo-{{ ansible_hostname }}"
+#    publish_all_ports: yes
+#    dns:
+#      - "{{ docker_dns_2 }}"
+#      - "{{ ansible_docker0.ipv4.address }}"
+#    ports:
+#        - "{{ zookeeper_client_port }}:{{ zookeeper_client_port }}"
+#        - "{{ zookeeper_peerport }}:{{ zookeeper_peerport }}"
+#        - "{{ zookeeper_leaderport }}:{{ zookeeper_leaderport }}"
+#    volumes:
+#      - "{{ ext_zookeeper_conf_volume }}:/zookeeper/conf"
+#      - "{{ ext_zookeeper_volume }}:/var/lib/zookeeper"
+#    name: zookeeper
+#    restart_policy: always
+#  register: docker_id
+#  tags:
+#    - docker
 
+- name: check if a zookeeper container is started
+  command: bash -c "docker ps | grep zookeeper"
+  ignore_errors: True
+  register: result
+
+- name: start zookeeper container
+  command: docker run -d
+              {% if docker_net_false|default(False) %} -n=false
+                  -v {{ ext_hadoop_conf_volume }}/hosts:/etc/hosts
+                  -v {{ ext_hadoop_conf_volume }}/resolv.conf:/etc/resolv.conf
+              {% endif %} -h {{ ansible_hostname }}{% if docker_net_false|default(False) %}-zn{% endif %}
+              --dns {{ docker_dns_2 }}
+              --dns {{ ansible_docker0.ipv4.address }}
+              --dns-search node.dc1.consul
+              -p={{ zookeeper_client_port }}:{{ zookeeper_client_port }}
+              -p={{ zookeeper_peerport }}:{{ zookeeper_peerport }}
+              -p={{ zookeeper_leaderport }}:{{ zookeeper_leaderport }}
+              -v {{ ext_zookeeper_conf_volume }}:/zookeeper/conf
+              -v {{ ext_zookeeper_volume }}:/var/lib/zookeeper
+              --name=zookeeper gitinsky/zookeeper:0.1.2
+  register: docker_id
+  when: result|failed
 
 - name: start network
   shell: /root/ovswork.sh br10 {{ docker_id.stdout }} {{ network_map[ '' + ansible_hostname + '-zn' ] }}/24 {{ network_map[ '_broadcast' ] }} {{ network_map['_gateway'] }}
   when: (docker_id.changed == True) and (docker_net_false|default(False) == True)
-
-# command: docker run -d {% if docker_net_false|default(False) %} -n=false -v
-#  {{ ext_hadoop_conf_volume }}/hosts:/etc/hosts {% endif %} -h {{ ansible_hostname }}{% if docker_net_false|default(False) %}-zn{% endif %}
-#  --dns {{ ansible_docker0.ipv4.address }}
-#  --dns {{ docker_dns_2 }}
-#  --dns-search node.dc1.consul
-#  -p={{ zookeeper_client_port }}:{{ zookeeper_client_port }}
-#  -p={{ zookeeper_peerport }}:{{ zookeeper_peerport }}
-#  -p={{ zookeeper_leaderport }}:{{ zookeeper_leaderport }}
-#  -v {{ ext_zookeeper_conf_volume }}:/zookeeper/conf
-#  -v {{ ext_zookeeper_volume }}:/var/lib/zookeeper
-#  -name zookeeper gitinsky/zookeeper:0.1.1
